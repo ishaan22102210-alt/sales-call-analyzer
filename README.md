@@ -48,6 +48,10 @@ python analyze.py calls/my_call.mp3
 
 If the rep is the second voice, add `--rep B`. Transcripts are saved to `reports/`, so re-running on the `.json` doesn't transcribe twice.
 
+## Sales toolkit
+
+Call prep, discovery questions, objection handling, a build-vs-buy calculator and follow-up emails: see [toolkit/](toolkit/README.md). Practice-call buyer briefs are in [briefs/](briefs/).
+
 ## Results
 
 I'm using this on my own practice calls. Updated weekly.
