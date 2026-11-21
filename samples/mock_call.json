@@ -1,0 +1,92 @@
+[
+  {
+    "speaker": "A",
+    "text": "Hi Priya, thanks for making time. How's your week going?",
+    "start": 0,
+    "end": 5000
+  },
+  {
+    "speaker": "B",
+    "text": "Busy, we're shipping a new receptionist agent for dental clinics.",
+    "start": 5600,
+    "end": 10600
+  },
+  {
+    "speaker": "A",
+    "text": "Nice. So let me give you some background on us. We're a speech AI company, we have speech-to-text, streaming, a voice agent API, text-to-speech, and our accuracy on our benchmarks is really strong, especially on names and numbers, which matters for appointments. We also have speaker labels, PII redaction, and an LLM gateway so you can run models on transcripts. Customers really like how fast we are, and we have SDKs for Python, Node, and others.",
+    "start": 11200,
+    "end": 59200
+  },
+  {
+    "speaker": "A",
+    "text": "And our pricing is per hour of audio, which tends to be very competitive. We also have a free tier so your team can try it today.",
+    "start": 59800,
+    "end": 73800
+  },
+  {
+    "speaker": "B",
+    "text": "Okay. We're using Deepgram right now.",
+    "start": 74400,
+    "end": 77400
+  },
+  {
+    "speaker": "A",
+    "text": "Got it. What made you take this call?",
+    "start": 78000,
+    "end": 81000
+  },
+  {
+    "speaker": "B",
+    "text": "Honestly, our agent mishears phone numbers and patient names. Clinics complain, and about one in eight bookings needs a human to fix it.",
+    "start": 81600,
+    "end": 90600
+  },
+  {
+    "speaker": "A",
+    "text": "That's exactly what we're good at. Our models handle alphanumerics really well, and we see big gains there.",
+    "start": 91200,
+    "end": 100200
+  },
+  {
+    "speaker": "B",
+    "text": "Everyone says that. Latency is my other worry. If the agent pauses, callers hang up.",
+    "start": 100800,
+    "end": 106800
+  },
+  {
+    "speaker": "A",
+    "text": "How are you measuring latency today, end of speech to first audio back?",
+    "start": 107400,
+    "end": 112400
+  },
+  {
+    "speaker": "B",
+    "text": "Roughly. We're around 1.2 seconds and want under 800 milliseconds.",
+    "start": 113000,
+    "end": 118000
+  },
+  {
+    "speaker": "A",
+    "text": "Makes sense. Who else would be involved if you decided to switch providers?",
+    "start": 118600,
+    "end": 123600
+  },
+  {
+    "speaker": "B",
+    "text": "Me and our CEO. She cares about cost per call, we're at about nine cents.",
+    "start": 124200,
+    "end": 130200
+  },
+  {
+    "speaker": "A",
+    "text": "Great. I'll send over some docs and a link to the free tier. Talk soon?",
+    "start": 130800,
+    "end": 136800
+  },
+  {
+    "speaker": "B",
+    "text": "Sure, send it over.",
+    "start": 137400,
+    "end": 139400
+  }
+]
