@@ -19,7 +19,7 @@ GATEWAY_URL = "https://llm-gateway.assemblyai.com/v1/chat/completions"
 
 # Model names change often. Check the LLM Gateway docs for the current list
 # and set LLM_MODEL in your .env to change it.
-DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+DEFAULT_MODEL = "claude-sonnet-5-5"
 
 MEDDPICC = [
     "Metrics", "Economic buyer", "Decision criteria", "Decision process",
