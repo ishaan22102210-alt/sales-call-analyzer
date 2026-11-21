@@ -29,7 +29,7 @@ Record a sales call, get a coaching report. Built on [AssemblyAI](https://www.as
 Needs Python 3.10+.
 
 ```sh
-git clone https://github.com/YOUR_USERNAME/sales-call-analyzer.git
+git clone https://github.com/ishaan22102210-alt/sales-call-analyzer.git
 cd sales-call-analyzer
 pip install -r requirements.txt
 ```
