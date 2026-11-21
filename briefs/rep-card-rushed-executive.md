@@ -11,7 +11,10 @@ Send your friend **[buyer-card-rushed-executive.md](buyer-card-rushed-executive.
 
 ---
 
-## For the REP (read this before you start)
+## For the REP
+
+**Full prep sheet with scripts and a minute-by-minute plan: [prep-sheet-rushed-executive.md](prep-sheet-rushed-executive.md)**
+ (read this before you start)
 
 You sell speech-to-text for AssemblyAI. Your only goal is to **earn a second meeting**. You will not close a deal in 5 minutes.
 
