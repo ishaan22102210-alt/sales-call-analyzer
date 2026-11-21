@@ -33,10 +33,18 @@ export async function POST(req: Request) {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(COOKIE, session.value, {
     httpOnly: true, // page JavaScript can't read it
-    secure: process.env.NODE_ENV === "production", // HTTPS only once deployed
+    // HTTPS-only whenever the site is served over HTTPS (always on Vercel).
+    // Over plain http (e.g. testing on your phone via your laptop's IP) a
+    // Secure cookie would be silently dropped and login would look broken.
+    secure: isHttps(req),
     sameSite: "strict", // never sent from other websites
     path: "/",
     maxAge: session.maxAge,
   });
   return res;
+}
+
+function isHttps(req: Request): boolean {
+  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim();
+  return (proto ?? new URL(req.url).protocol.replace(":", "")) === "https";
 }

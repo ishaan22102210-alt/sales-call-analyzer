@@ -98,13 +98,15 @@ test("login from another website is blocked", async () => {
 });
 
 test("right access code sets a secure session cookie", async () => {
-  const r = await req("/api/login", { method: "POST", body: { code: CODE } });
+  const r = await req("/api/login", { method: "POST", body: { code: CODE }, headers: { "x-forwarded-proto": "https" } });
   assert.equal(r.status, 200);
   const set = r.headers.get("set-cookie") ?? "";
   assert.match(set, /pb_session=/);
   assert.match(set, /HttpOnly/i);
   assert.match(set, /SameSite=strict/i);
-  assert.match(set, /Secure/i, "production cookies must be HTTPS-only");
+  assert.match(set, /Secure/i, "cookies must be HTTPS-only when served over HTTPS");
+  const plain = await req("/api/login", { method: "POST", body: { code: CODE } });
+  assert.doesNotMatch(plain.headers.get("set-cookie") ?? "", /Secure/i, "plain-http testing must still work");
   cookie = set.split(";")[0];
   const check = await req("/api/login", { headers: { cookie } });
   assert.deepEqual(await check.json(), { authed: true });
@@ -197,8 +199,15 @@ test("score upstream failure returns a clean 502 with no leaked details", async 
 
 // --- token ---------------------------------------------------------------
 
+test("token requires a known buyer", async () => {
+  for (const q of ["", "?persona=", "?persona=nobody", "?persona=__proto__", "?persona=constructor"]) {
+    const r = await req("/api/token" + q, { headers: { cookie } });
+    assert.equal(r.status, 400, q);
+  }
+});
+
 test("token upstream failure returns a clean 502 with no leaked details", async () => {
-  const r = await req("/api/token", { headers: { cookie } });
+  const r = await req("/api/token?persona=dana", { headers: { cookie } });
   assert.equal(r.status, 502);
   const body = await r.json();
   assert.deepEqual(Object.keys(body), ["error"]);
@@ -228,6 +237,9 @@ test("the API key never reaches the browser bundle", async () => {
     assert.ok(!js.includes("test-key-not-real"), s);
     assert.ok(!js.includes(CODE), s);
     assert.ok(!js.includes("ASSEMBLYAI_API_KEY"), s);
+    // The buyers' hidden secrets must not ship in the page's code.
+    assert.ok(!js.includes("Your secrets"), s);
+    assert.ok(!js.includes("two hundred thousand"), s);
   }
 });
 
@@ -246,10 +258,10 @@ test("per-visitor login limit: 10 tries per hour", async () => {
 test("per-visitor token limit: 15 per hour", async () => {
   const me = "192.0.2.20";
   for (let i = 0; i < 15; i++) {
-    const r = await req("/api/token", { headers: { cookie, "x-real-ip": me } });
+    const r = await req("/api/token?persona=dana", { headers: { cookie, "x-real-ip": me } });
     assert.notEqual(r.status, 429, `request ${i + 1}`);
   }
-  assert.equal((await req("/api/token", { headers: { cookie, "x-real-ip": me } })).status, 429);
+  assert.equal((await req("/api/token?persona=dana", { headers: { cookie, "x-real-ip": me } })).status, 429);
 });
 
 test("site-wide login cap stops brute force from many (faked) IPs", async () => {

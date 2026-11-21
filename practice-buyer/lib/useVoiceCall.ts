@@ -4,9 +4,10 @@
  * Runs one voice call with an AI buyer over AssemblyAI's Voice Agent API.
  *
  * Flow:
- *   1. ask our server for a short-lived token (/api/token)
- *   2. open a WebSocket to AssemblyAI with that token
- *   3. send `session.update` with the buyer's persona, voice and tools
+ *   1. get the microphone and start audio (needs the user's permission)
+ *   2. ask our server for a short-lived token + this buyer's hidden prompt
+ *   3. open a WebSocket to AssemblyAI with that token, and send
+ *      `session.update` with the buyer's prompt, voice and tools
  *   4. stream mic audio up as `input.audio`; play `reply.audio` back
  *   5. collect `transcript.user` (you) and `transcript.agent` (buyer) lines
  *   6. send `session.end` before closing, so the session stops billing
@@ -14,7 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Player, fromBase64, toBase64 } from "./audio";
-import { END_CALL_TOOL, type Persona } from "./personas";
+import { END_CALL_TOOL, type Buyer } from "./buyers";
 
 const AGENT_WS = "wss://agents.assemblyai.com/v1/ws";
 const RATE = 24000;
@@ -38,8 +39,11 @@ export function useVoiceCall() {
   const startedAt = useRef(0);
   const ending = useRef(false);
   const hangUpAfterReply = useRef(false);
+  const hangUpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const teardown = useCallback(() => {
+    if (hangUpTimer.current) clearTimeout(hangUpTimer.current);
+    hangUpTimer.current = null;
     node.current?.disconnect();
     node.current = null;
     mic.current?.getTracks().forEach((t) => t.stop());
@@ -76,8 +80,8 @@ export function useVoiceCall() {
   }, [teardown]);
 
   const start = useCallback(
-    async (persona: Persona) => {
-      if (ws.current) return;
+    async (buyer: Buyer) => {
+      if (ws.current || mic.current || ctx.current) return; // a call is already starting
       ending.current = false;
       hangUpAfterReply.current = false;
       setStatus("connecting");
@@ -98,18 +102,33 @@ export function useVoiceCall() {
         teardown();
       };
 
-      try {
-        const res = await fetch("/api/token", { cache: "no-store" });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(body.error ?? "Couldn't start the call.");
+      // If you hang up while we're still connecting, stop at the next step.
+      const cancelled = () => {
+        if (!ending.current) return false;
+        teardown();
+        return true;
+      };
 
+      try {
+        // Audio first. Creating the AudioContext right away (during the click)
+        // and resuming it avoids browsers starting it "suspended" (silent).
+        const audioCtx = new AudioContext({ sampleRate: RATE });
+        ctx.current = audioCtx;
         mic.current = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
         });
-        const audioCtx = new AudioContext({ sampleRate: RATE });
-        ctx.current = audioCtx;
+        if (cancelled()) return;
+        await audioCtx.resume();
         await audioCtx.audioWorklet.addModule("/pcm-worklet.js");
+        if (cancelled()) return;
         player.current = new Player(audioCtx, RATE);
+
+        // Token last, so it's fresh: the mic prompt can take a while.
+        const res = await fetch(`/api/token?persona=${encodeURIComponent(buyer.id)}`, { cache: "no-store" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error ?? "Couldn't start the call.");
+        if (cancelled()) return;
+        const session = body.session as { system_prompt: string; greeting: string; voice: string; company: string };
 
         const url = new URL(AGENT_WS);
         url.searchParams.set("token", body.token);
@@ -121,14 +140,14 @@ export function useVoiceCall() {
             JSON.stringify({
               type: "session.update",
               session: {
-                system_prompt: persona.prompt,
-                greeting: persona.greeting,
+                system_prompt: session.system_prompt,
+                greeting: session.greeting,
                 input: {
                   format: { encoding: "audio/pcm" },
-                  keyterms: ["AssemblyAI", "MEDDPICC", "Whisper", "Deepgram", persona.company],
+                  keyterms: ["AssemblyAI", "MEDDPICC", "Whisper", "Deepgram", session.company],
                   turn_detection: { vad_threshold: 0.5, min_silence: 300, max_silence: 900, interrupt_response: true },
                 },
-                output: { voice: persona.voice, format: { encoding: "audio/pcm" } },
+                output: { voice: session.voice, format: { encoding: "audio/pcm" } },
                 tools: [END_CALL_TOOL],
               },
             }),
@@ -192,7 +211,11 @@ export function useVoiceCall() {
               if (hangUpAfterReply.current) setTimeout(stop, 1500); // let the goodbye finish playing
               break;
             case "tool.call": {
-              if (msg.name === "end_call") hangUpAfterReply.current = true;
+              if (msg.name === "end_call") {
+                hangUpAfterReply.current = true;
+                // The goodbye may already have finished playing: hang up anyway soon.
+                hangUpTimer.current ??= setTimeout(stop, 4000);
+              }
               sock.send(
                 JSON.stringify({ type: "tool.result", call_id: String(msg.call_id), result: JSON.stringify({ ok: true }) }),
               );
@@ -214,6 +237,10 @@ export function useVoiceCall() {
           else fail(`The call dropped (code ${e.code}).`);
         };
       } catch (e) {
+        if (ending.current) {
+          teardown(); // you hung up mid-connect: that's not an error
+          return;
+        }
         const name = e instanceof DOMException ? e.name : "";
         fail(
           name === "NotAllowedError"
@@ -234,8 +261,14 @@ export function useVoiceCall() {
     return () => clearInterval(t);
   }, [status]);
 
-  // Hang up if the page is closed mid-call.
-  useEffect(() => () => stop(), [stop]);
+  // Hang up if the page is closed mid-call. (Only if a call exists: React's
+  // dev mode runs this cleanup once on load, which must not mark "ended".)
+  useEffect(
+    () => () => {
+      if (ws.current || mic.current) stop();
+    },
+    [stop],
+  );
 
   return { status, lines, partial, buyerTalking, error, elapsed, start, stop };
 }

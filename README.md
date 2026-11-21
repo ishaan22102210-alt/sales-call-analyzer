@@ -48,6 +48,10 @@ python analyze.py calls/my_call.mp3
 
 If the rep is the second voice, add `--rep B`. Transcripts are saved to `reports/`, so re-running on the `.json` doesn't transcribe twice.
 
+## Practice Buyer (project #2)
+
+Practise discovery calls by voice against an AI buyer, then get a MEDDPICC score: see [practice-buyer/](practice-buyer/README.md).
+
 ## Sales toolkit
 
 Call prep, discovery questions, objection handling, a build-vs-buy calculator and follow-up emails: see [toolkit/](toolkit/README.md). Practice-call buyer briefs are in [briefs/](briefs/).

@@ -1,21 +1,24 @@
 /**
- * The buyers you can practise against.
+ * SERVER ONLY. The full buyer personas, including their hidden secrets.
  *
  * Each persona is a system prompt for AssemblyAI's Voice Agent. The prompt
  * holds "secrets": facts the buyer only reveals when the rep asks a good,
  * specific question. That is what makes it practice for discovery rather than
  * a chat with a friendly bot.
+ *
+ * Never import this file from the page or any "use client" file, or the
+ * secrets ship to the browser. The page uses lib/buyers.ts instead.
  */
 
-export type Persona = {
-  id: string;
-  name: string;
-  title: string;
-  company: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  minutes: number;
-  /** What the rep knows before the call: shown on screen. Never the secrets. */
-  brief: string;
+import { BUYERS, type Buyer } from "./buyers";
+
+function buyer(id: string): Buyer {
+  const b = BUYERS.find((x) => x.id === id);
+  if (!b) throw new Error(`no public buyer info for ${id}`);
+  return b;
+}
+
+export type Persona = Buyer & {
   greeting: string;
   voice: string;
   prompt: string;
@@ -43,15 +46,8 @@ const SHARED_RULES = `
 
 export const PERSONAS: Persona[] = [
   {
-    id: "dana",
-    name: "Dana Reyes",
-    title: "COO",
-    company: "Lumora",
-    difficulty: "Hard",
-    minutes: 5,
+    ...buyer("dana"),
     voice: "alba",
-    brief:
-      "Lumora (80 people) turns recorded insurance call-center calls into transcripts and summaries. Dana is COO: cares about cost, customers and deadlines, not tech details. A colleague forwarded your email; Dana is between meetings.",
     greeting: "Hi, I've only got five minutes. What's this about?",
     prompt: `You are Dana Reyes, COO of Lumora, an 80-person company. Lumora's software turns recorded insurance call-center calls into transcripts and short summaries for insurance managers. You process about 40,000 hours of audio a month.
 
@@ -74,15 +70,8 @@ You are between two meetings. A colleague forwarded this salesperson's email and
 ${SHARED_RULES}`,
   },
   {
-    id: "priya",
-    name: "Priya Nair",
-    title: "CTO",
-    company: "Brightsmile AI",
-    difficulty: "Medium",
-    minutes: 10,
+    ...buyer("priya"),
     voice: "alba",
-    brief:
-      "Brightsmile AI (25 people, seed-funded) builds an AI phone receptionist that books appointments for dental clinics. Priya is the CTO and co-founder: technical, curious, and careful with money. Priya booked this call after trying a free tier.",
     greeting: "Hey, thanks for jumping on. So, what did you want to chat about?",
     prompt: `You are Priya Nair, CTO and co-founder of Brightsmile AI, a 25-person seed-funded startup. Your product is an AI phone receptionist that answers calls and books appointments for about 300 dental clinics.
 
@@ -105,15 +94,8 @@ You booked this call after signing up for AssemblyAI's free tier, but you have n
 ${SHARED_RULES}`,
   },
   {
-    id: "marcus",
-    name: "Marcus Bell",
-    title: "Founder",
-    company: "Notewise",
-    difficulty: "Easy",
-    minutes: 10,
+    ...buyer("marcus"),
     voice: "alba",
-    brief:
-      "Notewise (6 people) is an AI meeting notetaker for small agencies. Marcus is the founder: chatty, open, and building fast. Marcus replied to your cold email saying 'sure, happy to chat'.",
     greeting: "Hey! Good to meet you. Yeah, I saw your email. Happy to chat, what's up?",
     prompt: `You are Marcus Bell, founder of Notewise, a 6-person startup making an AI meeting notetaker for small marketing agencies. You have about 400 paying users.
 
@@ -134,15 +116,6 @@ You replied to a cold email because you like meeting people. You are chatty, ope
 ${SHARED_RULES}`,
   },
 ];
-
-export const END_CALL_TOOL = {
-  type: "function" as const,
-  name: "end_call",
-  description: "Hang up the phone. Call this right after you have said goodbye.",
-  parameters: { type: "object", properties: {}, required: [] },
-  execution_mode: "hold" as const,
-  timeout_seconds: 5,
-};
 
 export function getPersona(id: string): Persona | undefined {
   return PERSONAS.find((p) => p.id === id);

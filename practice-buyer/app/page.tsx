@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PERSONAS, type Persona } from "@/lib/personas";
+import { BUYERS, type Buyer } from "@/lib/buyers";
 import { talkMetrics, toAnalyzerJson } from "@/lib/metrics";
 import { useVoiceCall } from "@/lib/useVoiceCall";
 
@@ -23,7 +23,10 @@ export default function Home() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [code, setCode] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [persona, setPersona] = useState<Persona>(PERSONAS[0]);
+  const [persona, setPersona] = useState<Buyer>(BUYERS[0]);
+  // The buyer the current/last call was with: scoring and labels use this,
+  // so picking a different card after a call can't mix up the results.
+  const [called, setCalled] = useState<Buyer>(BUYERS[0]);
   const [score, setScore] = useState<Score | null>(null);
   const [scoring, setScoring] = useState(false);
   const [scoreError, setScoreError] = useState("");
@@ -37,7 +40,7 @@ export default function Home() {
   }, []);
 
   // Hang up automatically when the time limit is reached.
-  const limit = persona.minutes * 60;
+  const limit = called.minutes * 60;
   useEffect(() => {
     if (call.status === "live" && call.elapsed >= limit) call.stop();
   }, [call, limit]);
@@ -47,14 +50,18 @@ export default function Home() {
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setLoginError("");
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok) setAuthed(true);
-    else setLoginError(body.error ?? "Something went wrong.");
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) setAuthed(true);
+      else setLoginError(body.error ?? "Something went wrong.");
+    } catch {
+      setLoginError("Couldn't reach the server. Check your connection and try again.");
+    }
   }
 
   async function getScore() {
@@ -65,13 +72,17 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          personaId: persona.id,
+          personaId: called.id,
           lines: call.lines.map(({ speaker, text }) => ({ speaker, text })),
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) setScore(body);
-      else setScoreError(body.error ?? "Scoring failed.");
+      else if (res.status === 401) {
+        setAuthed(false); // session expired: show the access-code screen again
+      } else setScoreError(body.error ?? "Scoring failed.");
+    } catch {
+      setScoreError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setScoring(false);
     }
@@ -81,9 +92,9 @@ export default function Home() {
     const blob = new Blob([JSON.stringify(toAnalyzerJson(call.lines), null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `practice-${persona.id}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `practice-${called.id}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000); // revoking at once can cancel the download
   }
 
   const inCall = call.status === "connecting" || call.status === "live";
@@ -114,7 +125,7 @@ export default function Home() {
 
       <h2>1. Pick your buyer</h2>
       <div className="grid">
-        {PERSONAS.map((p) => (
+        {BUYERS.map((p) => (
           <button
             key={p.id}
             className="card persona"
@@ -135,18 +146,18 @@ export default function Home() {
       <div className="card">
         <div className="row">
           {!inCall ? (
-            <button className="primary" onClick={() => { setScore(null); call.start(persona); }}>
-              {call.status === "ended" ? "Call again" : `Call ${persona.name.split(" ")[0]}`}
+            <button className="primary" onClick={() => { setScore(null); setScoreError(""); setCalled(persona); call.start(persona); }}>
+              {call.status === "ended" && called.id === persona.id ? "Call again" : `Call ${persona.name.split(" ")[0]}`}
             </button>
           ) : (
             <button className="ghost" onClick={call.stop}>Hang up</button>
           )}
           <span className={`timer ${call.elapsed >= limit - 60 && call.status === "live" ? "late" : ""}`}>
-            {fmt(call.elapsed)} / {fmt(limit)}
+            {fmt(call.elapsed)} / {fmt((inCall ? called : persona).minutes * 60)}
           </span>
           <span className="brief">
             {call.status === "connecting" && "Connecting…"}
-            {call.status === "live" && (call.buyerTalking ? `${persona.name.split(" ")[0]} is talking…` : "Listening…")}
+            {call.status === "live" && (call.buyerTalking ? `${called.name.split(" ")[0]} is talking…` : "Listening…")}
             {call.status === "ended" && "Call ended."}
           </span>
         </div>
@@ -156,7 +167,7 @@ export default function Home() {
           <div className="transcript" style={{ marginTop: 16 }}>
             {call.lines.map((l, i) => (
               <div key={i} className={`bubble ${l.speaker}`}>
-                <b>{l.speaker === "rep" ? "You" : persona.name.split(" ")[0]}</b>
+                <b>{l.speaker === "rep" ? "You" : called.name.split(" ")[0]}</b>
                 {l.text}
               </div>
             ))}
